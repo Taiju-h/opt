@@ -109,6 +109,7 @@ if ($mode === 'new' || $mode === 'edit') {
     $vehicles = $pdo->query("SELECT * FROM vehicle_masters WHERE is_active=1 ORDER BY sort_order")->fetchAll();
     
     $all_clients = $pdo->query("SELECT s.*, c.name as company_name FROM staffs s JOIN companies c ON s.company_id=c.id WHERE s.is_active=1 ORDER BY c.id")->fetchAll();
+    $companies = $pdo->query("SELECT id, name, email_domain FROM companies WHERE is_active=1 ORDER BY name")->fetchAll();
     $internal_staffs = $pdo->query("SELECT id, name FROM admins ORDER BY id")->fetchAll();
 
     require_once __DIR__ . '/m.site/view_form.php';
