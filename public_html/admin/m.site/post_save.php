@@ -7,6 +7,67 @@ if (!function_exists('generateAccessToken')) {
     }
 }
 
+// ---------------------------------------------------------
+// 新規現場/現場編集画面からの「客先担当者をその場で追加」
+// ---------------------------------------------------------
+if (($mode === 'new' || $mode === 'edit')
+    && $_SERVER['REQUEST_METHOD'] === 'POST'
+    && ($_POST['action'] ?? '') === 'add_client_staff') {
+
+    header('Content-Type: application/json; charset=UTF-8');
+
+    try {
+        $company_id = (int)($_POST['company_id'] ?? 0);
+        $name       = trim($_POST['name'] ?? '');
+        $email      = trim($_POST['email'] ?? '');
+        $position   = trim($_POST['position'] ?? '');
+
+        if ($company_id <= 0 || $name === '' || $email === '') {
+            throw new RuntimeException('会社・氏名・メールアドレスは必須です。');
+        }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            throw new RuntimeException('メールアドレスの形式が正しくありません。');
+        }
+
+        $stmt = $pdo->prepare("SELECT name FROM companies WHERE id = ? AND is_active = 1");
+        $stmt->execute([$company_id]);
+        $company_name = $stmt->fetchColumn();
+        if (!$company_name) {
+            throw new RuntimeException('選択した会社が見つかりません。');
+        }
+
+        $stmt = $pdo->prepare("INSERT INTO staffs (company_id, name, email, position) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$company_id, $name, $email, $position]);
+        $staff_id = (int)$pdo->lastInsertId();
+
+        echo json_encode([
+            'ok' => true,
+            'staff' => [
+                'id' => $staff_id,
+                'name' => $name,
+                'email' => $email,
+                'position' => $position,
+                'company_id' => $company_id,
+                'company_name' => $company_name,
+                'label' => $company_name . ' - ' . $name,
+            ],
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+
+    } catch (PDOException $e) {
+        $msg = ($e->getCode() == 23000)
+            ? 'このメールアドレスは既に登録されています。'
+            : '担当者登録中にDBエラーが発生しました。';
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'message' => $msg], JSON_UNESCAPED_UNICODE);
+        exit;
+    } catch (Throwable $e) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'message' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+
 if ($mode === 'list' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action']??'') === 'delete') {
     try {
         $stmt = $pdo->prepare("UPDATE sites SET is_active = 0 WHERE id = ?");
@@ -15,7 +76,9 @@ if ($mode === 'list' && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action
     } catch (Exception $e) { $sys_msg = "<div class='alert error'>エラー: " . htmlspecialchars($e->getMessage()) . "</div>"; }
 }
 
-if (($mode === 'new' || $mode === 'edit') && $_SERVER['REQUEST_METHOD'] === 'POST') {
+if (($mode === 'new' || $mode === 'edit')
+    && $_SERVER['REQUEST_METHOD'] === 'POST'
+    && (($_POST['action'] ?? 'save_site') === 'save_site')) {
     try {
         $pdo->beginTransaction();
 
