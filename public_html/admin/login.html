@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理者ログイン</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: "Hiragino Sans", sans-serif; background: #f1f5f9; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        .login-card { background: white; width: 100%; max-width: 400px; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
+        .error-msg { color: #ef4444; background: #fee2e2; padding: 10px; border-radius: 6px; margin-bottom: 20px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    <h1 style="color:#1e293b; margin-bottom:30px;">林六 受発注管理</h1>
+    
+    <div id="errorArea" class="error-msg">
+        <i class="fas fa-exclamation-circle"></i> IDまたはパスワードが違います
+    </div>
+
+    <form action="index.php" method="POST">
+        <input type="hidden" name="action" value="login">
+        
+        <div style="text-align:left; font-weight:bold; color:#64748b; margin-bottom:5px;">メールアドレス</div>
+        <input type="email" name="email" placeholder="example@hayashiroku.co.jp" required autocomplete="username">
+        
+        <div style="text-align:left; font-weight:bold; color:#64748b; margin-bottom:5px;">パスワード</div>
+        <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+        
+        <button type="submit">ログイン</button>
+    </form>
+</div>
+
+<script>
+    // URLパラメータに error=1 があったらエラーメッセージを表示
+    const urlParams = new URLSearchParams(window.location.search);
+    if(urlParams.get('error') == '1') {
+        document.getElementById('errorArea').style.display = 'block';
+    }
+</script>
+
+</body>
+</html>

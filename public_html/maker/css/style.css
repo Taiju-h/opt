@@ -1,0 +1,9 @@
+.qty-badge{
+    background: none!important;
+    color:#1d4ed8 !important;
+    margin:auto!important;
+    display: block;
+    width:60%;
+    text-align: center!important;
+    font-size:400%!important;
+}

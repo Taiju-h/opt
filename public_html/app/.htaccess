@@ -1,0 +1,13 @@
+
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # ファイルやディレクトリが実在する場合はそのまま表示 (css/jsなど用)
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # それ以外は全て index.php に token パラメータとして渡す
+    # 例: /app/abc12345  -->  index.php?token=abc12345
+    RewriteRule ^([a-zA-Z0-9-]+)$ index.php?token=$1 [L,QSA]
+</IfModule>

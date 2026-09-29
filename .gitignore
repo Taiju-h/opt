@@ -1,0 +1,6 @@
+public_html/inc.db.php
+public_html/inc.mail.php
+
+# Server secrets
+public_html/admin/.htpasswd
+public_html/admin/inc.db.php
