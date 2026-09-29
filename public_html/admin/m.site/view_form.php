@@ -19,9 +19,31 @@
         .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; color: white; font-weight: bold; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
         .btn-save { background: #2980b9; }
         .btn-cancel { background: #95a5a6; text-decoration: none; }
+        .btn-add-client { background:#2563eb; padding:7px 11px; font-size:0.78rem; white-space:nowrap; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
         th { background: #f1f5f9; color: #475569; font-size: 0.9rem; }
+
+        .label-with-action { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px; }
+        .label-with-action label { margin:0; }
+        .modal-overlay { display:none; position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:10000; align-items:center; justify-content:center; padding:20px; }
+        .modal-overlay.open { display:flex; }
+        .modal-card { width:100%; max-width:560px; background:#fff; border-radius:12px; box-shadow:0 25px 60px rgba(0,0,0,.25); overflow:hidden; }
+        .modal-head { display:flex; justify-content:space-between; align-items:center; padding:18px 20px; border-bottom:1px solid #e2e8f0; }
+        .modal-head h2 { margin:0; font-size:1.15rem; }
+        .modal-close { border:0; background:transparent; font-size:1.4rem; cursor:pointer; color:#64748b; }
+        .modal-body { padding:20px; }
+        .modal-body .form-group { margin-bottom:15px; }
+        .modal-actions { display:flex; justify-content:flex-end; gap:10px; padding:0 20px 20px; }
+        .btn-modal-cancel { background:#94a3b8; }
+        .btn-modal-save { background:#2563eb; }
+        .inline-message { display:none; padding:10px 12px; border-radius:6px; margin-bottom:15px; font-size:.9rem; }
+        .inline-message.error { display:block; background:#fee2e2; color:#991b1b; }
+        .inline-message.success { display:block; background:#dcfce7; color:#166534; }
+        @media (max-width: 760px) {
+            .form-row { flex-direction:column; gap:12px; }
+            .label-with-action { align-items:flex-start; }
+        }
     </style>
 </head>
 <body>
@@ -30,16 +52,21 @@
     <h1><?= $mode==='new'?'🏗️ 新規現場登録':'⚙️ 現場設定変更' ?></h1>
     
     <form method="POST">
+        <input type="hidden" name="action" value="save_site">
+
         <label>現場名（プロジェクト名）</label>
         <input type="text" name="site_name" value="<?= htmlspecialchars($site['name']??'') ?>" required placeholder="例：虎ノ門3丁目工事">
         
         <div class="form-row" style="margin-top:20px;">
             <div class="form-group">
-                <label style="color:#2980b9;">👤 客先担当者 (m.client登録者)</label>
+                <div class="label-with-action">
+                    <label style="color:#2980b9;">👤 客先担当者 (m.client登録者)</label>
+                    <button type="button" class="btn btn-add-client" id="openClientModal"><i class="fas fa-user-plus"></i> 新規担当者</button>
+                </div>
                 <select name="client_person_id" id="mgr_sel" class="select2" style="width:100%;">
                     <option value="">未選択</option>
                     <?php foreach($all_clients as $c): ?>
-                        <option value="<?= $c['id'] ?>" data-email="<?= $c['email'] ?>" <?= ($site['client_person_id']??'')==$c['id']?'selected':'' ?>>
+                        <option value="<?= $c['id'] ?>" data-email="<?= htmlspecialchars($c['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>" <?= ($site['client_person_id']??'')==$c['id']?'selected':'' ?>>
                             <?= htmlspecialchars($c['company_name'] . ' - ' . $c['name']) ?>
                         </option>
                     <?php endforeach; ?>
@@ -117,11 +144,132 @@
     </form>
 </div>
 
+<div class="modal-overlay" id="clientModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="clientModalTitle">
+        <div class="modal-head">
+            <h2 id="clientModalTitle"><i class="fas fa-user-plus"></i> 客先担当者を新規登録</h2>
+            <button type="button" class="modal-close" id="closeClientModal" aria-label="閉じる">×</button>
+        </div>
+        <div class="modal-body">
+            <div id="clientModalMessage" class="inline-message"></div>
+            <div class="form-group">
+                <label>所属会社 <span style="color:#e11d48;">*</span></label>
+                <select id="newClientCompany" style="width:100%;">
+                    <option value="">会社を選択</option>
+                    <?php foreach($companies as $company): ?>
+                        <option value="<?= $company['id'] ?>" data-domain="<?= htmlspecialchars($company['email_domain'] ?? '', ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($company['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="form-row" style="margin-bottom:0;">
+                <div class="form-group">
+                    <label>氏名 <span style="color:#e11d48;">*</span></label>
+                    <input type="text" id="newClientName" placeholder="例：山田 太郎">
+                </div>
+                <div class="form-group">
+                    <label>役職</label>
+                    <input type="text" id="newClientPosition" placeholder="例：工事課長">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>メールアドレス <span style="color:#e11d48;">*</span></label>
+                <input type="email" id="newClientEmail" placeholder="example@company.co.jp">
+                <div id="newClientDomainHint" style="font-size:.8rem; color:#64748b; margin-top:6px;"></div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-modal-cancel" id="cancelClientModal">キャンセル</button>
+            <button type="button" class="btn btn-modal-save" id="saveNewClient"><i class="fas fa-save"></i> 登録して選択</button>
+        </div>
+    </div>
+</div>
+
 <script>
 $(function(){
     $('.select2').select2({ placeholder: "選択または検索", allowClear: true });
-    $('#mgr_sel').on('select2:select', function(e){
-        $('#mgr_email').val($(this).find(':selected').data('email'));
+
+    function syncManagerEmail() {
+        const email = $('#mgr_sel').find(':selected').data('email') || '';
+        $('#mgr_email').val(email);
+    }
+
+    $('#mgr_sel').on('select2:select select2:clear change', syncManagerEmail);
+
+    const $modal = $('#clientModal');
+    const $msg = $('#clientModalMessage');
+
+    function openModal() {
+        $msg.removeClass('error success').hide().text('');
+        $modal.addClass('open').attr('aria-hidden', 'false');
+        setTimeout(() => $('#newClientCompany').focus(), 50);
+    }
+
+    function closeModal() {
+        $modal.removeClass('open').attr('aria-hidden', 'true');
+    }
+
+    $('#openClientModal').on('click', openModal);
+    $('#closeClientModal, #cancelClientModal').on('click', closeModal);
+    $modal.on('click', function(e){ if (e.target === this) closeModal(); });
+    $(document).on('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
+
+    $('#newClientCompany').on('change', function(){
+        const domain = $(this).find(':selected').data('domain') || '';
+        $('#newClientDomainHint').text(domain ? '会社ドメイン: @' + domain : '');
+    });
+
+    $('#saveNewClient').on('click', function(){
+        const companyId = $('#newClientCompany').val();
+        const name = $.trim($('#newClientName').val());
+        const position = $.trim($('#newClientPosition').val());
+        const email = $.trim($('#newClientEmail').val());
+
+        if (!companyId || !name || !email) {
+            $msg.removeClass('success').addClass('error').text('会社・氏名・メールアドレスを入力してください。').show();
+            return;
+        }
+
+        const $btn = $(this);
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> 登録中...');
+        $msg.removeClass('error success').hide().text('');
+
+        $.ajax({
+            url: 'm.site.php?mode=<?= rawurlencode($mode) ?><?= $site_id ? '&id=' . (int)$site_id : '' ?>',
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                action: 'add_client_staff',
+                company_id: companyId,
+                name: name,
+                position: position,
+                email: email
+            }
+        }).done(function(res){
+            if (!res || !res.ok || !res.staff) {
+                $msg.addClass('error').text((res && res.message) ? res.message : '担当者を登録できませんでした。').show();
+                return;
+            }
+
+            const s = res.staff;
+            const option = new Option(s.label, s.id, true, true);
+            $(option).attr('data-email', s.email);
+            $('#mgr_sel').append(option).trigger('change');
+            $('#mgr_email').val(s.email);
+
+            $('#newClientCompany').val('');
+            $('#newClientName').val('');
+            $('#newClientPosition').val('');
+            $('#newClientEmail').val('');
+            $('#newClientDomainHint').text('');
+
+            closeModal();
+        }).fail(function(xhr){
+            let text = '担当者を登録できませんでした。';
+            if (xhr.responseJSON && xhr.responseJSON.message) text = xhr.responseJSON.message;
+            $msg.removeClass('success').addClass('error').text(text).show();
+        }).always(function(){
+            $btn.prop('disabled', false).html('<i class="fas fa-save"></i> 登録して選択');
+        });
     });
 });
 </script>
