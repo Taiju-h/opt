@@ -210,12 +210,14 @@ foreach($products as $p) {
         <div class="card">
             <div class="card-title"><i class="fas fa-truck"></i> 配送車両</div>
             <div class="form-group">
-                <select name="vehicle" class="form-select" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem;">
-                    <?php foreach($vehicles as $v): ?>
-                    <option value="<?= $v['id'] ?>"><?= h($v['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <input type="text" name="vehicle_memo" placeholder="車両指定の理由・進入制限など (例: 進入路が狭いため4t車まで)" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; margin-top: 8px; font-size: 0.95rem; box-sizing: border-box;">
+                <?php if (!empty($vehicles)): ?>
+                    <select name="vehicle" class="form-select" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 1rem;">
+                        <?php foreach($vehicles as $v): ?>
+                        <option value="<?= $v['id'] ?>"><?= h($v['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php endif; ?>
+                <input type="text" name="vehicle_memo" placeholder="車両指定の理由・進入制限など (例: 進入路が狭いため4t車まで)" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; <?= !empty($vehicles) ? 'margin-top: 8px;' : '' ?> font-size: 0.95rem; box-sizing: border-box;">
             </div>
         </div>
 
