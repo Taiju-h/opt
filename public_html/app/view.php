@@ -384,12 +384,6 @@ foreach($products as $p) {
         }
     }
 
-    document.querySelectorAll('.qty-input').forEach(el => {
-        let pid = el.id.replace('total_qty_', '');
-        let total = parseFloat(el.value) || 0;
-        processTotalChange(pid, total); 
-    });
-
     const urgentCheck = document.getElementById('urgent_check');
     const dateWrapper = document.getElementById('date_input_wrapper');
     const urgentAlert = document.getElementById('urgent-alert');
@@ -540,6 +534,11 @@ foreach($products as $p) {
 
         return confirm('この内容で注文を確定しますか？\n※納期はメーカーの配車状況等により、ご希望に添えない場合があります。');
     }
+    document.querySelectorAll('.qty-input').forEach(el => {
+        let pid = el.id.replace('total_qty_', '');
+        let total = parseFloat(el.value) || 0;
+        processTotalChange(pid, total); 
+    });
 </script>
 </body>
 </html>
