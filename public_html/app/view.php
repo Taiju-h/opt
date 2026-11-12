@@ -55,6 +55,23 @@ foreach($products as $p) {
         .pkg-mode-selector { flex-wrap: wrap; gap: 8px; }
         .mode-auto .stepper input { color: #475569; }
         #return_count { width: 6rem; }
+        .submit-spinner {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            margin-inline-end: .5em;
+            vertical-align: -.12em;
+            border: 2px solid currentColor;
+            border-inline-end-color: transparent;
+            border-radius: 50%;
+            animation: submit-spin .7s linear infinite;
+        }
+        .submit-spinner[hidden] { display: none; }
+        .btn-main[aria-busy="true"] { cursor: wait; }
+        @keyframes submit-spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            .submit-spinner { animation: none; }
+        }
         .custom-badge { font-size: 1rem; font-weight: bold; color: #1e293b; background: #e2e8f0; padding: 6px 12px; border-radius: 6px; text-align: right; min-width: 80px; }
     </style>
 </head>
@@ -89,7 +106,7 @@ foreach($products as $p) {
                     <option value="<?= $count ?>"><?= $count ?>基</option>
                     <?php endfor; ?>
                 </select>
-                <p><button type="submit" class="btn-main">返却を依頼する</button></p>
+                <p><button type="submit" class="btn-main" data-submit-label="返却を依頼する"><span class="submit-spinner" aria-hidden="true" hidden></span><span class="submit-label">返却を依頼する</span></button></p>
             </div>
         </div>
 
@@ -232,7 +249,7 @@ foreach($products as $p) {
         <div class="card"><div class="card-title">備考</div><textarea name="memo" rows="3" placeholder="進入時の注意事項など"></textarea></div>
         
         <div class="footer-bar">
-            <button type="submit" class="btn-main">注文を確定する</button>
+            <button type="submit" class="btn-main" data-submit-label="注文を確定する"><span class="submit-spinner" aria-hidden="true" hidden></span><span class="submit-label">注文を確定する</span></button>
         </div>
         </fieldset>
     </form>
@@ -512,8 +529,34 @@ foreach($products as $p) {
     returnOnly.addEventListener('change', updateOrderMode);
     window.addEventListener('pageshow', updateOrderMode);
     updateOrderMode();
-    document.getElementById('orderForm').addEventListener('submit', event => {
-        if (!validateOrder()) event.preventDefault();
+    const orderForm = document.getElementById('orderForm');
+    const submitButtons = orderForm.querySelectorAll('[data-submit-label]');
+    let isSubmitting = false;
+
+    function showSubmitting(button, submitting) {
+        button.setAttribute('aria-busy', String(submitting));
+        button.querySelector('.submit-spinner').hidden = !submitting;
+        button.querySelector('.submit-label').textContent = submitting ? '送信中…' : button.dataset.submitLabel;
+    }
+
+    orderForm.addEventListener('submit', event => {
+        if (isSubmitting || !validateOrder()) {
+            event.preventDefault();
+            return;
+        }
+
+        isSubmitting = true;
+        const activeButton = event.submitter || submitButtons[returnOnly.checked ? 0 : 1];
+        showSubmitting(activeButton, true);
+        submitButtons.forEach(button => { button.disabled = true; });
+    });
+
+    window.addEventListener('pageshow', () => {
+        isSubmitting = false;
+        submitButtons.forEach(button => {
+            button.disabled = false;
+            showSubmitting(button, false);
+        });
     });
 
     function validateOrder() {
