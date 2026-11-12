@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action']??'') === 'order')
     
     $return_only = ($_POST['return_only'] ?? '') === '1';
     $return_count = filter_var($_POST['return_count'] ?? '', FILTER_VALIDATE_INT, [
-        'options' => ['min_range' => 1, 'max_range' => 2147483647]
+        'options' => ['min_range' => 1, 'max_range' => 20]
     ]);
     $return_text = $return_only && $return_count ? "【空コンテナ返却依頼】{$return_count}基" : '';
     $order_batches = [];
@@ -136,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action']??'') === 'order')
     $log_base = "Req:{$req_date}({$req_time}), Items:{$log_items_str}";
 
     if ($return_only && !$return_count) {
-        $message = '<p role="alert">空コンテナの返却基数を入力してください。</p>';
+        $message = '<p role="alert">空コンテナの返却基数を1〜20基から選択してください。</p>';
     } elseif ($return_text !== '' || !empty($all_items_db)) {
         write_app_log('Order Attempt', $site['name'], $log_base, 'START');
 

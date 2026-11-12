@@ -81,10 +81,19 @@ foreach($products as $p) {
         
         <div class="card">
             <label><input type="checkbox" name="return_only" id="return_only" value="1"> 空コンテナの返却のみ依頼する</label>
-            <p id="return_quantity" hidden><label>返却する空コンテナ <input type="number" name="return_count" id="return_count" min="1" max="2147483647" step="1" inputmode="numeric" disabled> 基</label></p>
+            <div id="return_quantity" hidden>
+                <p><label for="return_count">返却する空コンテナの基数</label></p>
+                <select name="return_count" id="return_count" class="form-select" disabled>
+                    <option value="">選択</option>
+                    <?php for ($count = 1; $count <= 20; $count++): ?>
+                    <option value="<?= $count ?>"><?= $count ?>基</option>
+                    <?php endfor; ?>
+                </select>
+                <p><button type="submit" class="btn-main">返却を依頼する</button></p>
+            </div>
         </div>
 
-        <fieldset id="order_products" style="border:0; padding:0; margin:0; min-width:0;">
+        <fieldset id="order_details" style="border:0; padding:0; margin:0; min-width:0;">
         <div class="card-title" style="margin-bottom:10px;"><i class="fas fa-boxes"></i> 発注商品</div>
         
         <?php foreach($products as $p): 
@@ -171,7 +180,6 @@ foreach($products as $p) {
             </div>
         </div>
         <?php endforeach; ?>
-        </fieldset>
 
         <div class="card" style="margin-top:30px;">
             <div class="card-title" style="margin-bottom: 4px;"><i class="far fa-calendar-alt"></i> 配送希望日時</div>
@@ -224,8 +232,9 @@ foreach($products as $p) {
         <div class="card"><div class="card-title">備考</div><textarea name="memo" rows="3" placeholder="進入時の注意事項など"></textarea></div>
         
         <div class="footer-bar">
-            <button type="submit" class="btn-main" id="submit_order">注文を確定する</button>
+            <button type="submit" class="btn-main">注文を確定する</button>
         </div>
+        </fieldset>
     </form>
 </div>
 <script>
@@ -499,13 +508,12 @@ foreach($products as $p) {
     const returnCount = document.getElementById('return_count');
     function updateOrderMode() {
         const returning = returnOnly.checked;
-        const products = document.getElementById('order_products');
-        products.hidden = returning;
-        products.disabled = returning;
+        const orderDetails = document.getElementById('order_details');
+        orderDetails.hidden = returning;
+        orderDetails.disabled = returning;
         document.getElementById('return_quantity').hidden = !returning;
         returnCount.disabled = !returning;
         returnCount.required = returning;
-        document.getElementById('submit_order').textContent = returning ? '返却を依頼する' : '注文を確定する';
     }
     returnOnly.addEventListener('change', updateOrderMode);
     window.addEventListener('pageshow', updateOrderMode);
