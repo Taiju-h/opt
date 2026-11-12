@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $body_tpl = implode("\n", $lines);
                     $subject = str_replace(array_keys($tags), array_values($tags), $sub_tpl);
                     $body    = str_replace(array_keys($tags), array_values($tags), $body_tpl);
-                    $recipients = array_filter(array_unique(array_merge([$order_data['manager_email']], explode(',', $order_data['cc_email']))));
+                    $recipients = array_filter(array_unique(array_merge([$order_data['manager_email']], array_map('trim', explode(',', (string)$order_data['cc_email'])))));
                     foreach ($recipients as $raw_recp) {
                         $recp = mb_convert_kana(trim($raw_recp), "rnas", "UTF-8");
                         if (!empty($recp)) send_one_mail($recp, $subject, $body);

@@ -70,11 +70,16 @@ $absolute_min_date = date('Y-m-d', strtotime('+1 day'));
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action']??'') === 'order') {
     
+    $return_only = ($_POST['return_only'] ?? '') === '1';
+    $return_count = filter_var($_POST['return_count'] ?? '', FILTER_VALIDATE_INT, [
+        'options' => ['min_range' => 1, 'max_range' => 2147483647]
+    ]);
+    $return_text = $return_only && $return_count ? "【空コンテナ返却依頼】{$return_count}基" : '';
     $order_batches = [];
     $all_items_db = []; 
     $log_items_str = ""; 
 
-    foreach ($products as $p) {
+    foreach ($return_only ? [] : $products as $p) {
         $pid = $p['product_id'];
         $total_kg = 0;
         $pkg_str_arr = [];
@@ -130,7 +135,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action']??'') === 'order')
     
     $log_base = "Req:{$req_date}({$req_time}), Items:{$log_items_str}";
 
-    if (!empty($all_items_db)) {
+    if ($return_only && !$return_count) {
+        $message = '<p role="alert">空コンテナの返却基数を入力してください。</p>';
+    } elseif ($return_text !== '' || !empty($all_items_db)) {
         write_app_log('Order Attempt', $site['name'], $log_base, 'START');
 
         try {
@@ -141,14 +148,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action']??'') === 'order')
                 $ng_str = implode(", ", $_POST['ng_ignored']);
                 $ng_memo = "\n【特例受入】NG時間解除: {$ng_str}";
             }
-            $memo_text = ($_POST['memo'] ?? '');
+            $memo_text = $return_only ? trim($return_text . "\n" . ($_POST['memo'] ?? '')) : ($_POST['memo'] ?? '');
             $urgent_flag = ($is_urgent ? "【🔥最短手配希望】\n" : "");
             $db_memo = $urgent_flag . $memo_text . $ng_memo;
             $vehicle_memo = trim($_POST['vehicle_memo'] ?? '');
             $maker_token = bin2hex(random_bytes(16));
 
             $stmt = $pdo->prepare("INSERT INTO orders (site_id, vehicle_id, vehicle_memo, status, is_urgent, requested_date, requested_time, maker_token, memo, created_at) VALUES (?, ?, ?, 'requested', ?, ?, ?, ?, ?, NOW())");
-            $stmt->execute([$site['id'], $_POST['vehicle'], $vehicle_memo, $is_urgent, $req_date, $req_time, $maker_token, $db_memo]);
+            $stmt->execute([$site['id'], $_POST['vehicle'] ?? null, $vehicle_memo, $is_urgent, $req_date, $req_time, $maker_token, $db_memo]);
             $oid = $pdo->lastInsertId();
 
             $stmt_i = $pdo->prepare("INSERT INTO order_items (order_id, product_id, quantity, package_details) VALUES (?, ?, ?, ?)");
@@ -162,6 +169,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action']??'') === 'order')
             list($tpl_internal_subject, $tpl_internal_body) = load_mail_template(__DIR__ . '/mail/order_comp_internal.txt');
 
             $display_memo = "";
+            foreach ($vehicles as $vehicle) {
+                if ((string)$vehicle['id'] === ($_POST['vehicle'] ?? '')) {
+                    $display_memo .= "【配送車両】" . $vehicle['name'] . "\n";
+                    break;
+                }
+            }
             if ($vehicle_memo) $display_memo .= "【車両特記事項】\n{$vehicle_memo}\n\n";
             $display_memo .= "【現場からの備考】\n" . ($memo_text ?: "なし") . $ng_memo;
 
@@ -200,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action']??'') === 'order')
             }
 
             // --- 2. 社内・現場向け控えメール ---
-            $all_items_text = "";
+            $all_items_text = $return_only ? $return_text . "\n" : "";
             foreach ($order_batches as $target_email => $batch) {
                 $target_disp = ($target_email === 'UNKNOWN') ? "★宛先未設定" : $batch['name'];
                 $all_items_text .= "▼ 発注先: {$target_disp}\n";
@@ -224,6 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action']??'') === 'order')
             $tags_int = $common_tags;
             $tags_int['{{ITEMS_DETAIL}}'] = $all_items_text;
 
+            if ($return_only) $tpl_internal_subject = "【空コンテナ返却依頼】" . $tpl_internal_subject;
             $sent_history = [];
 
             // 現場向け
@@ -261,14 +275,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action']??'') === 'order')
             $sent_vendors_str = implode(", ", $sent_log);
             write_app_log('Order Success', $site['name'], "OID:{$oid}, SentTo:[{$sent_vendors_str}], {$log_base}", 'SUCCESS');
 
+            $completion_title = $return_only ? '返却依頼を受け付けました' : '発注完了';
+            $completion_note = $return_only ? '※回収日時はまだ確定していません。' : '※納期はまだ確定していません。<br>配送日時は期待に添えない場合があります。';
             $message = "
             <div class='success-modal-overlay'>
                 <div class='success-modal'>
                     <div class='success-icon'><i class='fas fa-check'></i></div>
-                    <h2>発注完了</h2>
+                    <h2>{$completion_title}</h2>
                     <p class='order-id'>Order #{$oid}</p>
                     <p style='color:#e11d48; font-weight:bold; margin-top:10px; font-size:0.9rem;'>
-                        ※納期はまだ確定していません。<br>配送日時は期待に添えない場合があります。
+                        {$completion_note}
                     </p>
                     <a href='index.php?token={$token}' class='btn-main' style='margin-top:20px;'>続けて発注する</a>
                     <a href='history.php?token={$token}' class='btn-sub'>履歴を確認する</a>

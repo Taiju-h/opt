@@ -92,8 +92,8 @@
                 <input type="email" name="manager_email" id="mgr_email" value="<?= htmlspecialchars($site['manager_email']??'') ?>" readonly style="background:#f8fafc; color:#64748b;" placeholder="担当者を選ぶと自動入力されます">
             </div>
             <div class="form-group">
-                <label>CCメールアドレス (社内共有など)</label>
-                <input type="email" name="cc_email" value="<?= htmlspecialchars($site['cc_email']??'') ?>" placeholder="例：sales@hayashiroku.co.jp">
+                <label>控えの追加送付先（複数は半角カンマ区切り）</label>
+                <input type="email" multiple name="cc_email" value="<?= htmlspecialchars($site['cc_email']??'') ?>" placeholder="例：sales@hayashiroku.co.jp">
             </div>
         </div>
 

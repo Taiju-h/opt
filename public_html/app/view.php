@@ -12,7 +12,7 @@ foreach($products as $p) {
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>資材発注 | <?= h($site['name']) ?></title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
@@ -44,8 +44,17 @@ foreach($products as $p) {
         .mode-auto .stepper input { background: #f8fafc; color: #94a3b8; pointer-events: none; }
         
         .total-input-wrapper { background: white; padding: 15px; border-radius: 8px; border: 2px solid #94a3b8; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); width: 100%; }
-        .qty-controls { display: flex; justify-content: center; align-items: center; gap: 5px; flex-wrap: wrap; }
-        .qty-input { max-width: 90px; }
+        .qty-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; gap: 5px; }
+        .qty-controls .qty-btn { width: 100%; min-width: 0; padding-inline: 0; }
+        .qty-value { grid-column: 1 / -1; grid-row: 1; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+        .qty-controls .qty-input { width: 100%; min-width: 0; max-width: none; appearance: textfield; }
+        .qty-controls .qty-input::-webkit-inner-spin-button { appearance: none; }
+        .pkg-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+        .pkg-row .stepper { grid-column: 2; grid-row: 1; }
+        .pkg-row .pkg-calc { grid-column: 1 / -1; min-width: 0; display: block; overflow-wrap: anywhere; }
+        .pkg-mode-selector { flex-wrap: wrap; gap: 8px; }
+        .mode-auto .stepper input { color: #475569; }
+        #return_count { width: 6rem; }
         .custom-badge { font-size: 1rem; font-weight: bold; color: #1e293b; background: #e2e8f0; padding: 6px 12px; border-radius: 6px; text-align: right; min-width: 80px; }
     </style>
 </head>
@@ -70,6 +79,12 @@ foreach($products as $p) {
         <input type="hidden" name="action" value="order">
         <input type="hidden" name="token" value="<?= h($token) ?>">
         
+        <div class="card">
+            <label><input type="checkbox" name="return_only" id="return_only" value="1"> 空コンテナの返却のみ依頼する</label>
+            <p id="return_quantity" hidden><label>返却する空コンテナ <input type="number" name="return_count" id="return_count" min="1" max="2147483647" step="1" inputmode="numeric" disabled> 基</label></p>
+        </div>
+
+        <fieldset id="order_products" style="border:0; padding:0; margin:0; min-width:0;">
         <div class="card-title" style="margin-bottom:10px;"><i class="fas fa-boxes"></i> 発注商品</div>
         
         <?php foreach($products as $p): 
@@ -90,8 +105,8 @@ foreach($products as $p) {
                     <button type="button" class="qty-btn btn-ton" onclick="changeTotal(<?= $pid ?>, -1000)">-1t</button>
                     <button type="button" class="qty-btn" onclick="changeTotal(<?= $pid ?>, -100)">-100k</button>
                     
-                    <input type="number" name="qty[<?= $pid ?>]" id="total_qty_<?= $pid ?>" class="qty-input" value="<?= $init_kg ?>" step="10" onchange="handleTotalManualInput(<?= $pid ?>)" style="font-size:1.3rem; color:#1e293b;">
-                    <span class="unit-label">kg</span>
+                    <div class="qty-value"><input type="number" inputmode="decimal" name="qty[<?= $pid ?>]" id="total_qty_<?= $pid ?>" class="qty-input" value="<?= $init_kg ?>" step="10" onchange="handleTotalManualInput(<?= $pid ?>)" style="font-size:1.3rem; color:#1e293b;">
+                    <span class="unit-label">kg</span></div>
 
                     <button type="button" class="qty-btn" onclick="changeTotal(<?= $pid ?>, 100)">+100k</button>
                     <button type="button" class="qty-btn btn-ton" onclick="changeTotal(<?= $pid ?>, 1000)">+1t</button>
@@ -109,14 +124,14 @@ foreach($products as $p) {
                 </label>
                 <label class="mode-label" id="lbl_manual_<?= $pid ?>">
                     <input type="radio" name="pkg_mode_sel[<?= $pid ?>]" value="manual" onchange="switchMode(<?= $pid ?>, 'manual')" style="display:none;">
-                    <i class="fas fa-hand-pointer"></i> 小分けを指定
+                    <i class="fas fa-hand-pointer"></i> 荷姿を指定
                 </label>
             </div>
 
+            <p class="pkg-cap">「荷姿を指定」でローリーやコンテナの数を調整できます。余った数量は「指定なし」に表示されます。</p>
             <div class="packages-list mode-auto" id="pkg_area_<?= $pid ?>">
                 <?php 
                 $pkgs = $js_packages[$pid] ?? [];
-                $pkg_index = 0;
                 foreach($pkgs as $pkg): 
                     if($pkg['capacity_kg'] > 0):
                 ?>
@@ -131,16 +146,15 @@ foreach($products as $p) {
                         </div>
 
                         <div class="stepper">
-                            <button type="button" class="step-btn" id="btn_minus_<?= $pid ?>_<?= $pkg['id'] ?>" onclick="stepPkg(<?= $pid ?>, <?= $pkg['id'] ?>, <?= $pkg_index ?>, -1)">-</button>
+                            <button type="button" class="step-btn" id="btn_minus_<?= $pid ?>_<?= $pkg['id'] ?>" onclick="stepPkg(<?= $pid ?>, <?= $pkg['id'] ?>, -1)">-</button>
                             <input type="number" name="pkg_qty[<?= $pid ?>][<?= $pkg['id'] ?>]" id="pkg_<?= $pid ?>_<?= $pkg['id'] ?>" value="0" readonly>
-                            <button type="button" class="step-btn" id="btn_plus_<?= $pid ?>_<?= $pkg['id'] ?>" onclick="stepPkg(<?= $pid ?>, <?= $pkg['id'] ?>, <?= $pkg_index ?>, 1)">+</button>
+                            <button type="button" class="step-btn" id="btn_plus_<?= $pid ?>_<?= $pkg['id'] ?>" onclick="stepPkg(<?= $pid ?>, <?= $pkg['id'] ?>, 1)">+</button>
                             
                             <input type="hidden" name="pkg_cap[<?= $pid ?>][<?= $pkg['id'] ?>]" value="<?= $pkg['capacity_kg'] ?>">
                             <input type="hidden" name="pkg_name[<?= $pid ?>][<?= $pkg['id'] ?>]" value="<?= h($pkg['package_name']) ?>">
                         </div>
                     </div>
                 <?php 
-                    $pkg_index++;
                     endif; 
                 endforeach; 
                 ?>
@@ -157,6 +171,7 @@ foreach($products as $p) {
             </div>
         </div>
         <?php endforeach; ?>
+        </fieldset>
 
         <div class="card" style="margin-top:30px;">
             <div class="card-title" style="margin-bottom: 4px;"><i class="far fa-calendar-alt"></i> 配送希望日時</div>
@@ -207,7 +222,7 @@ foreach($products as $p) {
         <div class="card"><div class="card-title">備考</div><textarea name="memo" rows="3" placeholder="進入時の注意事項など"></textarea></div>
         
         <div class="footer-bar">
-            <button type="submit" class="btn-main" onclick="return validateOrder()">注文を確定する</button>
+            <button type="submit" class="btn-main" id="submit_order">注文を確定する</button>
         </div>
     </form>
 </div>
@@ -251,7 +266,7 @@ foreach($products as $p) {
         if (calcEl) {
             if (count > 0) {
                 let totalKg = capacity * count;
-                calcEl.innerHTML = `${capacity.toLocaleString()}<small style="color:#94a3b8; margin:0 2px;">×</small>${count}<small style="color:#94a3b8; margin:0 2px;">=</small><span style="color:#e11d48; font-weight:bold; font-size:0.85rem;">${formatCombo(totalKg)}</span>`;
+                calcEl.innerHTML = `${Number(capacity).toLocaleString()}<small style="color:#94a3b8; margin:0 2px;">×</small>${count}<small style="color:#94a3b8; margin:0 2px;">=</small><span style="color:#e11d48; font-weight:bold; font-size:0.85rem;">${formatCombo(totalKg)}</span>`;
             } else {
                 calcEl.innerHTML = `<span style="color:#cbd5e1;">-</span>`;
             }
@@ -276,13 +291,12 @@ foreach($products as $p) {
 
     function processTotalChange(pid, total) {
         updateTonBadge(pid, total);
-        document.querySelector(`input[name="pkg_mode_sel[${pid}]"][value="auto"]`).checked = true;
-        switchMode(pid, 'auto');
-        recalcBreakdown(pid, -1);
+        recalcBreakdown(pid);
         updateDynamicLeadTime();
     }
 
-    function recalcBreakdown(pid, changedIndex) {
+    function recalcBreakdown(pid) {
+        const auto = document.getElementById('pkg_area_' + pid).classList.contains('mode-auto');
         let totalKg = parseFloat(document.getElementById('total_qty_' + pid).value) || 0;
         let pkgs = packageData[pid] || [];
         let usedKg = 0;
@@ -294,14 +308,7 @@ foreach($products as $p) {
                 if (!input) continue;
                 
                 let maxAllowed = Math.floor((totalKg - usedKg) / pkg.capacity_kg);
-                let val;
-                
-                if (i <= changedIndex) {
-                    val = parseInt(input.value) || 0;
-                    if (val > maxAllowed) val = maxAllowed;
-                } else {
-                    val = maxAllowed; 
-                }
+                const val = auto ? maxAllowed : Math.min(parseInt(input.value) || 0, maxAllowed);
                 
                 input.value = val;
                 usedKg += val * pkg.capacity_kg; 
@@ -322,7 +329,7 @@ foreach($products as $p) {
         if(customInput) customInput.value = remain;
     }
 
-    function stepPkg(pid, pkgId, pkgIndex, delta) {
+    function stepPkg(pid, pkgId, delta) {
         let area = document.getElementById('pkg_area_' + pid);
         
         if (area.classList.contains('mode-auto')) {
@@ -337,7 +344,7 @@ foreach($products as $p) {
         if(val < 0) val = 0;
         input.value = val;
         
-        recalcBreakdown(pid, pkgIndex);
+        recalcBreakdown(pid);
     }
 
     function switchMode(pid, mode) {
@@ -349,7 +356,7 @@ foreach($products as $p) {
             area.classList.add('mode-auto');
             lblAuto.classList.add('active');
             lblManual.classList.remove('active');
-            recalcBreakdown(pid, -1);
+            recalcBreakdown(pid);
         } else {
             area.classList.remove('mode-auto');
             lblManual.classList.add('active');
@@ -486,7 +493,29 @@ foreach($products as $p) {
     });
 
     // ★修正：空欄なら自動で最短手配になるマジックを実装
+    const returnOnly = document.getElementById('return_only');
+    const returnCount = document.getElementById('return_count');
+    function updateOrderMode() {
+        const returning = returnOnly.checked;
+        const products = document.getElementById('order_products');
+        products.hidden = returning;
+        products.disabled = returning;
+        document.getElementById('return_quantity').hidden = !returning;
+        returnCount.disabled = !returning;
+        returnCount.required = returning;
+        document.getElementById('submit_order').textContent = returning ? '返却を依頼する' : '注文を確定する';
+    }
+    returnOnly.addEventListener('change', updateOrderMode);
+    window.addEventListener('pageshow', updateOrderMode);
+    updateOrderMode();
+    document.getElementById('orderForm').addEventListener('submit', event => {
+        if (!validateOrder()) event.preventDefault();
+    });
+
     function validateOrder() {
+        if (returnOnly.checked) {
+            return confirm('空コンテナ ' + returnCount.value + ' 基の返却を依頼しますか？');
+        }
         let total = 0;
         document.querySelectorAll('.qty-input').forEach(i => total += parseFloat(i.value) || 0);
         if (total <= 0) { alert('数量がすべて0kgです。資材の数を選択してください。'); return false; }
