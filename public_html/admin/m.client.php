@@ -50,7 +50,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // C. 削除
+    // C. 担当者編集
+    elseif (isset($_POST['action']) && $_POST['action'] === 'edit_staff') {
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        $companyId = filter_input(INPUT_POST, 'company_id', FILTER_VALIDATE_INT);
+        $name = trim($_POST['name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $position = trim($_POST['position'] ?? '');
+
+        if (!$id || !$companyId || $name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $message = "<div class='alert error'>入力内容を確認してください。</div>";
+        } else {
+            try {
+                $stmt = $pdo->prepare("UPDATE staffs SET company_id = ?, name = ?, email = ?, position = ? WHERE id = ? AND is_active = 1");
+                $stmt->execute([$companyId, $name, $email, $position, $id]);
+                $message = "<div class='alert success'>担当者情報を更新しました。</div>";
+            } catch (PDOException $e) {
+                if ($e->getCode() == 23000) {
+                    $message = "<div class='alert error'>更新エラー: メールアドレスが既に登録されています。</div>";
+                } else {
+                    error_log('staff update failed: ' . $e->getMessage());
+                    $message = "<div class='alert error'>担当者の更新に失敗しました。</div>";
+                }
+            }
+        }
+    }
+
+    // D. 削除
     elseif (isset($_POST['action']) && $_POST['action'] === 'delete_staff') {
         $stmt = $pdo->prepare("UPDATE staffs SET is_active = 0 WHERE id = ?");
         $stmt->execute([$_POST['id']]);
@@ -133,6 +159,15 @@ $json_staffs = json_encode($staffs);
 
         .filter-status { font-size: 0.85rem; color: #64748b; background: #f1f5f9; padding: 4px 8px; border-radius: 4px; display: none; margin-bottom: 10px; }
         .filter-status.active { display: inline-block; }
+        .staff-actions { display: flex; align-items: center; gap: 12px; }
+        .staff-edit-button { color: #2563eb; background: none; border: none; cursor: pointer; padding: 4px; }
+        .staff-edit-button:hover { color: #1d4ed8; }
+        .staff-modal { display: none; position: fixed; inset: 0; background: rgba(15,23,42,.55); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+        .staff-modal.active { display: flex; }
+        .staff-modal-content { background: #fff; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; border-radius: 12px; padding: 28px; box-sizing: border-box; }
+        .staff-modal-content label { display: block; font-weight: bold; margin-bottom: 5px; }
+        .staff-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .staff-modal-actions button { width: auto; }
     </style>
 </head>
 <body>
@@ -238,7 +273,7 @@ $json_staffs = json_encode($staffs);
                             <th>所属会社</th>
                             <th>氏名 / 役職</th>
                             <th>メールアドレス</th>
-                            <th style="width:50px;">操作</th>
+                            <th style="width:90px;">操作</th>
                         </tr>
                     </thead>
                     <tbody id="staffTableBody">
@@ -247,6 +282,32 @@ $json_staffs = json_encode($staffs);
             </div>
         </div>
 
+    </div>
+</div>
+
+<div id="staffEditModal" class="staff-modal" role="dialog" aria-modal="true" aria-labelledby="staffEditTitle" onclick="if(event.target === this) closeStaffEdit()">
+    <div class="staff-modal-content">
+        <h2 id="staffEditTitle">✏️ 担当者を編集</h2>
+        <form method="POST">
+            <input type="hidden" name="action" value="edit_staff">
+            <input type="hidden" name="id" id="editStaffId">
+            <label for="editStaffCompany">所属会社</label>
+            <select id="editStaffCompany" name="company_id" required>
+                <?php foreach($companies as $c): ?>
+                <option value="<?= (int)$c['id'] ?>"><?= htmlspecialchars($c['name'], ENT_QUOTES, 'UTF-8') ?></option>
+                <?php endforeach; ?>
+            </select>
+            <label for="editStaffName">氏名</label>
+            <input type="text" id="editStaffName" name="name" required>
+            <label for="editStaffPosition">役職</label>
+            <input type="text" id="editStaffPosition" name="position">
+            <label for="editStaffEmail">メールアドレス</label>
+            <input type="email" id="editStaffEmail" name="email" required>
+            <div class="staff-modal-actions">
+                <button type="button" class="btn" onclick="closeStaffEdit()">キャンセル</button>
+                <button type="submit" class="btn btn-staff">更新保存</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -329,16 +390,39 @@ $json_staffs = json_encode($staffs);
                 <td><strong>${escapeHtml(staff.name)}</strong><br><span style="font-size:0.75rem; color:#666;">${escapeHtml(staff.position || '')}</span></td>
                 <td>${escapeHtml(staff.email)}</td>
                 <td>
-                     <form method="POST" onsubmit="return confirm('削除しますか？')">
-                        <input type="hidden" name="action" value="delete_staff">
-                        <input type="hidden" name="id" value="${staff.id}">
-                        <button style="color:red; background:none; border:none; cursor:pointer;"><i class="fas fa-trash"></i></button>
-                    </form>
+                    <div class="staff-actions">
+                        <button type="button" class="staff-edit-button" aria-label="担当者を編集" title="編集" onclick="openStaffEdit(${Number(staff.id)})"><i class="fas fa-pen"></i></button>
+                        <form method="POST" onsubmit="return confirm('削除しますか？')">
+                            <input type="hidden" name="action" value="delete_staff">
+                            <input type="hidden" name="id" value="${Number(staff.id)}">
+                            <button type="submit" style="color:red; background:none; border:none; cursor:pointer;" aria-label="担当者を削除" title="削除"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </div>
                 </td>
             `;
             tbody.appendChild(tr);
         });
     }
+
+    function openStaffEdit(id) {
+        const staff = allStaffs.find(item => Number(item.id) === Number(id));
+        if (!staff) return;
+        document.getElementById('editStaffId').value = staff.id;
+        document.getElementById('editStaffCompany').value = staff.company_id;
+        document.getElementById('editStaffName').value = staff.name || '';
+        document.getElementById('editStaffPosition').value = staff.position || '';
+        document.getElementById('editStaffEmail').value = staff.email || '';
+        document.getElementById('staffEditModal').classList.add('active');
+        document.getElementById('editStaffName').focus();
+    }
+
+    function closeStaffEdit() {
+        document.getElementById('staffEditModal').classList.remove('active');
+    }
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') closeStaffEdit();
+    });
 
     function escapeHtml(str) {
         if(!str) return '';
