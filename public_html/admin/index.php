@@ -100,15 +100,6 @@ usort($menu_items, function($a, $b) {
     <a href="logout.php" style="color:#c0392b; text-decoration:none; font-weight:bold;"><i class="fas fa-sign-out-alt"></i> ログアウト</a>
 </div>
 <div class="dashboard-grid">
-    <?php if (($_SESSION['admin_role'] ?? '') === 'super_admin'): ?>
-    <a href="deploy.php" class="card border-blue">
-        <div class="card-icon icon-blue"><i class="fas fa-rocket"></i>🚀</div>
-        <div class="card-content">
-            <h3>OPT デプロイヤー</h3>
-            <p>GitHubから本番反映・前回への復旧・Git状態の確認</p>
-        </div>
-    </a>
-    <?php endif; ?>
     <?php foreach($menu_items as $m): ?>
     <a href="<?= $m['url'] ?>" class="card border-<?= $m['color'] ?>">
         <div class="card-icon icon-<?= $m['color'] ?>"><i class="<?= $m['icon'] ?>"></i></div>
